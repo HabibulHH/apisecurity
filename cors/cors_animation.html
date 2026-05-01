@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<title>CORS Flow Animation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --color-bg: #0F1419;
+    --color-bg-soft: #161B22;
+    --color-card: #1C232C;
+    --color-card-hover: #232B36;
+    --color-border: #2A3340;
+    --color-border-soft: #1F2630;
+    --color-text-primary: #E6EDF3;
+    --color-text-secondary: #B1BAC4;
+    --color-text-tertiary: #7D8590;
+
+    --color-frontend: #7EE787;
+    --color-frontend-bg: rgba(126, 231, 135, 0.12);
+    --color-browser: #58A6FF;
+    --color-browser-bg: rgba(88, 166, 255, 0.12);
+    --color-api: #BC8CFF;
+    --color-api-bg: rgba(188, 140, 255, 0.12);
+    --color-warn: #F0B72F;
+    --color-warn-bg: rgba(240, 183, 47, 0.12);
+    --color-error: #FF7B72;
+    --color-error-bg: rgba(255, 123, 114, 0.12);
+
+    --font-bn: 'Hind Siliguri', 'Inter', system-ui, sans-serif;
+    --font-en: 'Inter', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  body {
+    font-family: var(--font-bn);
+    background:
+      radial-gradient(ellipse at top, rgba(88, 166, 255, 0.08), transparent 50%),
+      radial-gradient(ellipse at bottom, rgba(188, 140, 255, 0.06), transparent 50%),
+      var(--color-bg);
+    color: var(--color-text-primary);
+    padding: 32px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.5;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    background: var(--color-bg-soft);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.02),
+      0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .header {
+    padding: 28px 32px 20px;
+    border-bottom: 1px solid var(--color-border-soft);
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #58A6FF, #BC8CFF);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header p {
+    font-size: 13px;
+    color: var(--color-text-tertiary);
+  }
+
+  .stage {
+    padding: 28px 32px 32px;
+  }
+
+  .mode-tabs {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .mode-btn {
+    font-family: var(--font-bn);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-card);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .mode-btn:hover {
+    background: var(--color-card-hover);
+    color: var(--color-text-primary);
+    transform: translateY(-1px);
+  }
+  .mode-btn.active {
+    background: linear-gradient(135deg, rgba(88,166,255,0.15), rgba(188,140,255,0.15));
+    color: #FFFFFF;
+    border-color: var(--color-browser);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+  }
+
+  .actors {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 8px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .actor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .actor-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    border: 1px solid var(--color-border);
+    background: var(--color-card);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .actor-icon.frontend {
+    background: var(--color-frontend-bg);
+    border-color: var(--color-frontend);
+    box-shadow: 0 0 24px rgba(126, 231, 135, 0.15);
+  }
+  .actor-icon.browser  {
+    background: var(--color-browser-bg);
+    border-color: var(--color-browser);
+    box-shadow: 0 0 24px rgba(88, 166, 255, 0.15);
+  }
+  .actor-icon.api {
+    background: var(--color-api-bg);
+    border-color: var(--color-api);
+    box-shadow: 0 0 24px rgba(188, 140, 255, 0.15);
+  }
+
+  .actor-label {
+    font-family: var(--font-en);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.01em;
+  }
+  .actor-sublabel {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    text-align: center;
+  }
+
+  .lane-area {
+    position: relative;
+    height: 300px;
+    margin: 0 auto 24px;
+    max-width: 720px;
+  }
+
+  .lifeline {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom,
+      transparent,
+      var(--color-border) 8%,
+      var(--color-border) 92%,
+      transparent
+    );
+    z-index: 0;
+  }
+  .ll-frontend { left: 16.66%; }
+  .ll-browser  { left: 50%; }
+  .ll-api      { left: 83.33%; }
+
+  .msg {
+    position: absolute;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-bn);
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: 8px;
+    padding: 0 12px;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 4px) scale(0.9);
+    transition: opacity 0.4s ease, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    z-index: 3;
+    pointer-events: none;
+    backdrop-filter: blur(8px);
+  }
+  .msg.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+
+  .msg-arrow {
+    position: absolute;
+    height: 2px;
+    opacity: 0;
+    transform-origin: left center;
+    transition: opacity 0.3s ease, width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+    border-radius: 1px;
+  }
+  .msg-arrow::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    border: 5px solid transparent;
+  }
+  .msg-arrow.right::after {
+    right: -8px;
+    border-left-color: inherit;
+  }
+  .msg-arrow.left::after {
+    left: -8px;
+    border-right-color: inherit;
+  }
+  .msg-arrow.show { opacity: 1; }
+
+  .self-loop {
+    position: absolute;
+    width: 64px;
+    height: 30px;
+    border: 2px solid;
+    border-radius: 15px;
+    border-left: none;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: 2;
+  }
+  .self-loop.show { opacity: 1; }
+
+  .section-title {
+    font-family: var(--font-en);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .log-box {
+    background: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    min-height: 90px;
+    max-height: 220px;
+    overflow-y: auto;
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: var(--color-text-secondary);
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .log-box::-webkit-scrollbar { width: 6px; }
+  .log-box::-webkit-scrollbar-track { background: transparent; }
+  .log-box::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+  .log-line {
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity 0.35s ease, transform 0.35s ease;
+  }
+  .log-line.show { opacity: 1; transform: translateX(0); }
+
+  .controls {
+    display: flex;
+    gap: 14px;
+    margin-top: 22px;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .play-btn {
+    font-family: var(--font-bn);
+    font-size: 13px;
+    padding: 10px 26px;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, #58A6FF, #BC8CFF);
+    color: #fff;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(88, 166, 255, 0.25);
+  }
+  .play-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 22px rgba(88, 166, 255, 0.35);
+  }
+  .play-btn:active { transform: translateY(0); }
+
+  .step-label {
+    font-family: var(--font-en);
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+    font-weight: 500;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--font-en);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-right: 8px;
+    letter-spacing: 0.02em;
+  }
+  .badge-ok   { background: rgba(126, 231, 135, 0.15); color: #7EE787; }
+  .badge-err  { background: rgba(255, 123, 114, 0.15); color: #FF7B72; }
+  .badge-info { background: rgba(88, 166, 255, 0.15);  color: #58A6FF; }
+  .badge-warn { background: rgba(240, 183, 47, 0.15);  color: #F0B72F; }
+
+  @media (max-width: 640px) {
+    .stage { padding: 20px 16px; }
+    .header { padding: 22px 16px 16px; }
+    .actor-icon { width: 52px; height: 52px; font-size: 22px; }
+    .lane-area { height: 280px; }
+    .msg { font-size: 10.5px; height: 26px; padding: 0 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>CORS Flow — কীভাবে কাজ করে</h1>
+    <p>Browser, Frontend আর API এর মধ্যে CORS এর interaction</p>
+  </div>
+
+  <div class="stage">
+    <div class="mode-tabs">
+      <button class="mode-btn active" id="btn-success" onclick="setMode('success')">CORS সফল</button>
+      <button class="mode-btn" id="btn-fail" onclick="setMode('fail')">CORS Error</button>
+      <button class="mode-btn" id="btn-preflight" onclick="setMode('preflight')">Preflight</button>
+    </div>
+
+    <div class="actors">
+      <div class="actor">
+        <div class="actor-icon frontend">🌐</div>
+        <div class="actor-label">hira.com</div>
+        <div class="actor-sublabel">Frontend Server</div>
+      </div>
+      <div class="actor">
+        <div class="actor-icon browser">🖥️</div>
+        <div class="actor-label">Browser</div>
+        <div class="actor-sublabel">Enforce করে</div>
+      </div>
+      <div class="actor">
+        <div class="actor-icon api">⚙️</div>
+        <div class="actor-label">api.hira.com</div>
+        <div class="actor-sublabel">API Server</div>
+      </div>
+    </div>
+
+    <div class="lane-area" id="lane">
+      <div class="lifeline ll-frontend"></div>
+      <div class="lifeline ll-browser"></div>
+      <div class="lifeline ll-api"></div>
+    </div>
+
+    <div class="section-title">Activity Log</div>
+    <div class="log-box" id="log-box">
+      <div class="log-line show" style="color:var(--color-text-tertiary);font-size:11px;text-align:center;">▶ Play বাটনে চাপ দিন...</div>
+    </div>
+
+    <div class="controls">
+      <button class="play-btn" id="play-btn" onclick="playAnim()">▶ Play</button>
+      <span class="step-label" id="step-label"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODES = {
+  success: {
+    steps: [
+      { from: 'frontend', to: 'browser', y: 20,  color: '#7EE787', bg: 'rgba(126, 231, 135, 0.15)', text: 'HTML + JS দিলো', log: '<span class="badge badge-ok">hira.com</span> Browser এ HTML/JS লোড হলো' },
+      { from: 'browser',  to: 'api',     y: 75,  color: '#58A6FF', bg: 'rgba(88, 166, 255, 0.15)',  text: 'GET /data  Origin: hira.com', log: '<span class="badge badge-info">Browser</span> Origin header লাগিয়ে api.hira.com এ request পাঠালো' },
+      { from: 'api',      to: 'api',     y: 125, color: '#BC8CFF', bg: 'rgba(188, 140, 255, 0.15)', text: '✓ hira.com allow list এ আছে', log: '<span class="badge badge-ok">API Server</span> hira.com allow list এ আছে — header সেট করলো', self: true },
+      { from: 'api',      to: 'browser', y: 180, color: '#BC8CFF', bg: 'rgba(188, 140, 255, 0.15)', text: '200 OK  Allow-Origin: hira.com', log: '<span class="badge badge-ok">api.hira.com</span> Response + CORS header পাঠালো' },
+      { from: 'browser',  to: 'browser', y: 235, color: '#7EE787', bg: 'rgba(126, 231, 135, 0.15)', text: '✓ Origin match! JS কে দাও', log: '<span class="badge badge-ok">Browser</span> Header match — JS কে data দিলো ✅', self: true },
+    ]
+  },
+  fail: {
+    steps: [
+      { from: 'frontend', to: 'browser', y: 20,  color: '#7EE787', bg: 'rgba(126, 231, 135, 0.15)', text: 'HTML + JS দিলো', log: '<span class="badge badge-ok">hira.com</span> Browser এ HTML/JS লোড হলো' },
+      { from: 'browser',  to: 'api',     y: 80,  color: '#58A6FF', bg: 'rgba(88, 166, 255, 0.15)',  text: 'GET /data  Origin: hira.com', log: '<span class="badge badge-info">Browser</span> Request পাঠালো — Origin header সহ' },
+      { from: 'api',      to: 'browser', y: 145, color: '#7D8590', bg: 'rgba(125, 133, 144, 0.15)', text: '200 OK  (CORS header নেই!)', log: '<span class="badge badge-warn">api.hira.com</span> Response এলো কিন্তু Allow-Origin header নেই!' },
+      { from: 'browser',  to: 'browser', y: 200, color: '#FF7B72', bg: 'rgba(255, 123, 114, 0.15)', text: '✗ Header নেই — BLOCK!', log: '<span class="badge badge-err">Browser</span> CORS header নেই — JS কে block করলো ❌', self: true, isError: true },
+      { from: 'browser',  to: 'browser', y: 250, color: '#FF7B72', bg: 'rgba(255, 123, 114, 0.15)', text: 'Console: CORS Error!', log: '<span class="badge badge-err">Console</span> "No Access-Control-Allow-Origin header" — Server এ 200 OK কিন্তু JS পায়নি!', self: true, isError: true },
+    ]
+  },
+  preflight: {
+    steps: [
+      { from: 'frontend', to: 'browser', y: 10,  color: '#7EE787', bg: 'rgba(126, 231, 135, 0.15)', text: 'HTML + JS লোড', log: '<span class="badge badge-ok">hira.com</span> JS লোড হলো, fetch() call করবে' },
+      { from: 'browser',  to: 'browser', y: 55,  color: '#F0B72F', bg: 'rgba(240, 183, 47, 0.15)',  text: '⚠ POST + custom header → Preflight!', log: '<span class="badge badge-warn">Browser</span> POST/custom header দেখলো — আগে OPTIONS পাঠাবো', self: true },
+      { from: 'browser',  to: 'api',     y: 105, color: '#F0B72F', bg: 'rgba(240, 183, 47, 0.15)',  text: 'OPTIONS /data  (Preflight)', log: '<span class="badge badge-warn">Browser</span> OPTIONS request — "এই method allow করো?"' },
+      { from: 'api',      to: 'browser', y: 155, color: '#BC8CFF', bg: 'rgba(188, 140, 255, 0.15)', text: '204  Allow-Methods: POST  Max-Age: 3600', log: '<span class="badge badge-ok">API Server</span> Preflight approved — 1 ঘণ্টা cache করো' },
+      { from: 'browser',  to: 'api',     y: 205, color: '#58A6FF', bg: 'rgba(88, 166, 255, 0.15)',  text: 'POST /data  (real request)', log: '<span class="badge badge-info">Browser</span> Preflight OK — এখন real request পাঠালো' },
+      { from: 'api',      to: 'browser', y: 255, color: '#BC8CFF', bg: 'rgba(188, 140, 255, 0.15)', text: '200 OK + data', log: '<span class="badge badge-ok">api.hira.com</span> Data পাঠালো ✅' },
+    ]
+  }
+};
+
+let mode = 'success';
+let animRunning = false;
+let timeouts = [];
+
+function pct(actor) {
+  if (actor === 'frontend') return 16.66;
+  if (actor === 'browser')  return 50;
+  if (actor === 'api')      return 83.33;
+}
+
+function setMode(m) {
+  mode = m;
+  ['success','fail','preflight'].forEach(k => {
+    document.getElementById('btn-'+k).classList.toggle('active', k===m);
+  });
+  clearAll();
+  document.getElementById('step-label').textContent = '';
+  document.getElementById('log-box').innerHTML = '<div class="log-line show" style="color:var(--color-text-tertiary);font-size:11px;text-align:center;">▶ Play বাটনে চাপ দিন...</div>';
+}
+
+function clearAll() {
+  timeouts.forEach(clearTimeout);
+  timeouts = [];
+  animRunning = false;
+  document.getElementById('play-btn').textContent = '▶ Play';
+  document.getElementById('lane').querySelectorAll('.msg-dyn,.arrow-dyn,.loop-dyn').forEach(e => e.remove());
+}
+
+function playAnim() {
+  if (animRunning) { clearAll(); return; }
+  clearAll();
+  animRunning = true;
+  document.getElementById('play-btn').textContent = '⏹ Stop';
+
+  const lane = document.getElementById('lane');
+  const logBox = document.getElementById('log-box');
+  logBox.innerHTML = '';
+
+  const steps = MODES[mode].steps;
+  const laneW = lane.offsetWidth || 600;
+
+  steps.forEach((step, i) => {
+    const t = i * 1100;
+
+    timeouts.push(setTimeout(() => {
+      const x1 = laneW * pct(step.from) / 100;
+      const x2 = laneW * pct(step.to) / 100;
+      const arrowY = step.y + 14;
+
+      if (step.self) {
+        const loop = document.createElement('div');
+        loop.className = 'self-loop loop-dyn';
+        loop.style.cssText = `
+          left:${x1}px;
+          top:${step.y}px;
+          border-color:${step.color};
+        `;
+        lane.appendChild(loop);
+        requestAnimationFrame(() => loop.classList.add('show'));
+      } else {
+        const arrow = document.createElement('div');
+        const goingRight = x2 > x1;
+        arrow.className = 'msg-arrow arrow-dyn ' + (goingRight ? 'right' : 'left');
+        const startX = Math.min(x1, x2);
+        arrow.style.cssText = `
+          background:${step.color};
+          top:${arrowY}px;
+          left:${startX}px;
+          width:0px;
+          border-left-color:${step.color};
+          border-right-color:${step.color};
+        `;
+        lane.appendChild(arrow);
+        requestAnimationFrame(() => {
+          arrow.classList.add('show');
+          arrow.style.width = Math.abs(x2 - x1) + 'px';
+        });
+      }
+
+      const msg = document.createElement('div');
+      msg.className = 'msg msg-dyn';
+      const cx = step.self ? (x1 + 76) : (x1 + x2) / 2;
+      msg.style.cssText = `
+        background:${step.bg};
+        color:${step.isError ? '#FF7B72' : step.color};
+        border:1px solid ${step.color}66;
+        top:${step.y - 32}px;
+        left:${cx}px;
+      `;
+      msg.textContent = step.text;
+      lane.appendChild(msg);
+      requestAnimationFrame(() => msg.classList.add('show'));
+
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML = step.log;
+      logBox.appendChild(line);
+      logBox.scrollTop = logBox.scrollHeight;
+      requestAnimationFrame(() => line.classList.add('show'));
+
+      document.getElementById('step-label').textContent = `ধাপ ${i+1} / ${steps.length}`;
+
+      if (i === steps.length - 1) {
+        timeouts.push(setTimeout(() => {
+          animRunning = false;
+          document.getElementById('play-btn').textContent = '▶ আবার চালাও';
+        }, 700));
+      }
+    }, t));
+  });
+}
+</script>
+</body>
+</html>
